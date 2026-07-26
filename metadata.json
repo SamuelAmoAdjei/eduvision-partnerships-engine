@@ -1,0 +1,6 @@
+{
+  "name": "Eduvision Partnerships Engine",
+  "description": "Executive AI proposal drafter and diplomatic outreach manager for Eduvision Ghana.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
