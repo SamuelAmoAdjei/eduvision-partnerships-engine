@@ -616,11 +616,11 @@ export const ProposalDrafter: React.FC<Props> = ({
               <button
                 onClick={handleGenerate}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold text-white bg-[#0A2540] hover:bg-[#00A896] rounded-lg shadow-md transition cursor-pointer disabled:opacity-60"
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold text-white bg-[#FF5722] hover:bg-[#E04818] rounded-xl shadow-lg shadow-orange-500/20 transition cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin text-teal-300" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
                     <span>
                       {formData.useThinkingMode
                         ? 'Reasoning Deeply (Gemini 3.1 Pro High Thinking)...'
@@ -629,7 +629,7 @@ export const ProposalDrafter: React.FC<Props> = ({
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-teal-300" />
+                    <Sparkles className="w-4 h-4 text-amber-200" />
                     <span>Generate Proposal Document</span>
                   </>
                 )}

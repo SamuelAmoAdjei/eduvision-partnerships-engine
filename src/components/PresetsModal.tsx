@@ -28,14 +28,14 @@ export const PresetsModal: React.FC<Props> = ({ isOpen, onClose, onSelectPreset 
       <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-5 bg-[#0A2540] text-white">
+        <div className="flex items-center justify-between p-5 bg-[#18123A] text-white">
           <div className="flex items-center space-x-2">
-            <Layers className="w-5 h-5 text-teal-400" />
+            <Layers className="w-5 h-5 text-[#FF5722]" />
             <h3 className="text-base font-bold text-white">Eduvision Partnership Presets</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
+            className="p-1.5 rounded-xl hover:bg-[#2A2352] text-slate-300 hover:text-white transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -55,7 +55,7 @@ export const PresetsModal: React.FC<Props> = ({ isOpen, onClose, onSelectPreset 
                   onSelectPreset(preset);
                   onClose();
                 }}
-                className="group p-4 bg-slate-50 hover:bg-slate-100/90 border border-slate-200 rounded-xl cursor-pointer transition shadow-sm hover:shadow-md hover:border-teal-500/50"
+                className="group p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl cursor-pointer transition shadow-sm hover:shadow-md hover:border-[#FF5722]"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
@@ -64,7 +64,7 @@ export const PresetsModal: React.FC<Props> = ({ isOpen, onClose, onSelectPreset 
                       {preset.category}
                     </span>
                   </div>
-                  <span className="text-xs font-bold text-[#00A896] group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                  <span className="text-xs font-bold text-[#FF5722] group-hover:translate-x-1 transition-transform flex items-center gap-1">
                     Load Scenario <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>

@@ -41,14 +41,14 @@ export const HistoryDrawer: React.FC<Props> = ({
         <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200">
           
           {/* Header */}
-          <div className="p-5 bg-[#0A2540] text-white flex items-center justify-between">
+          <div className="p-5 bg-[#18123A] text-white flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <History className="w-5 h-5 text-teal-400" />
+              <History className="w-5 h-5 text-[#FF5722]" />
               <h3 className="text-base font-bold text-white">Saved Vault</h3>
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
+              className="p-1.5 rounded-xl hover:bg-[#2A2352] text-slate-300 hover:text-white transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

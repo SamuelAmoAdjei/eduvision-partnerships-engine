@@ -81,3 +81,32 @@ export interface PresetScenario {
   sampleEmailIntent?: string;
 }
 
+export interface InboxMessage {
+  id: string;
+  from: string;
+  senderName: string;
+  date: string;
+  body: string;
+  isRead?: boolean;
+}
+
+export interface InboxThread {
+  id: string;
+  recipientEmail: string;
+  recipientName: string;
+  subject: string;
+  unreadCount: number;
+  lastUpdated: string;
+  messages: InboxMessage[];
+  categoryTag?: string;
+}
+
+export interface InboxDraftResult {
+  id: string;
+  threadId: string;
+  recipientEmail: string;
+  subject: string;
+  draftBody: string;
+  generatedAt: string;
+  modelUsed: string;
+}
