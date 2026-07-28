@@ -9,6 +9,7 @@ export interface AuthUser {
   grantedScopes: string[];
   authenticatedAt: string;
   isMockAuth?: boolean;
+  accessToken?: string;
 }
 
 interface Props {
@@ -37,6 +38,7 @@ export const SignInPage: React.FC<Props> = ({
     
     // If VITE_GOOGLE_CLIENT_ID is defined in production, redirect to Google OAuth consent screen
     if (googleClientId && googleClientId !== 'YOUR_GOOGLE_CLIENT_ID') {
+      sessionStorage.setItem('oauth_pending_role', roleInput || 'Executive Director');
       const redirectUri = `${window.location.origin}/oauth/callback`;
       const scopes = [
         'https://www.googleapis.com/auth/gmail.readonly',

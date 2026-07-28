@@ -35,6 +35,78 @@ export default function App() {
     }
   }, [authUser]);
 
+  // Google OAuth 2.0 Callback & Access Token Listener
+  useEffect(() => {
+    const processOAuthCallback = async () => {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      
+      let accessToken: string | null = null;
+      
+      if (hash && hash.includes('access_token=')) {
+        const params = new URLSearchParams(hash.replace(/^#/, '?'));
+        accessToken = params.get('access_token');
+      } else if (search && search.includes('access_token=')) {
+        const params = new URLSearchParams(search);
+        accessToken = params.get('access_token');
+      }
+
+      if (accessToken) {
+        try {
+          // Fetch authenticated user profile from Google UserInfo endpoint
+          let userEmail = 'samuel.adjei@eduvisiongh.org';
+          let userName = 'Samuel Adjei';
+          let avatarUrl = '';
+
+          const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+
+          if (userInfoRes.ok) {
+            const info = await userInfoRes.json();
+            if (info.email) userEmail = info.email;
+            if (info.name) userName = info.name;
+            if (info.picture) avatarUrl = info.picture;
+          }
+
+          const savedRole = sessionStorage.getItem('oauth_pending_role') || 'Executive Director';
+
+          const authenticatedUser: AuthUser = {
+            email: userEmail,
+            name: userName,
+            role: savedRole,
+            avatarUrl: avatarUrl,
+            grantedScopes: [
+              'https://www.googleapis.com/auth/gmail.readonly',
+              'https://www.googleapis.com/auth/gmail.compose',
+              'https://www.googleapis.com/auth/userinfo.email',
+              'https://www.googleapis.com/auth/userinfo.profile'
+            ],
+            authenticatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isMockAuth: false,
+            accessToken: accessToken
+          };
+
+          setAuthUser(authenticatedUser);
+          localStorage.setItem('eduvision_auth_user', JSON.stringify(authenticatedUser));
+          localStorage.setItem('eduvision_gmail_access_token', accessToken);
+          sessionStorage.removeItem('oauth_pending_role');
+
+          // Clean up URL path and fragment
+          const cleanPath = window.location.pathname === '/oauth/callback' ? '/' : window.location.pathname;
+          window.history.replaceState({}, document.title, cleanPath);
+          setActiveTab('proposal');
+        } catch (err) {
+          console.error('Failed to parse Google OAuth callback:', err);
+        }
+      } else if (window.location.pathname === '/oauth/callback') {
+        window.history.replaceState({}, document.title, '/');
+      }
+    };
+
+    processOAuthCallback();
+  }, []);
+
   // Global API Error Notification Banner State
   const [globalApiError, setGlobalApiError] = useState<ApiErrorInfo | null>(null);
 
