@@ -299,15 +299,21 @@ export const ProposalDrafter: React.FC<Props> = ({
         }),
       });
 
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error(`Server returned invalid response (${response.status} ${response.statusText}).`);
+      const responseText = await response.text();
+      let data: any = null;
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          // Response is non-JSON
+        }
       }
 
       if (!response.ok) {
-        throw new Error(data.error || `Failed to generate proposal (${response.status})`);
+        const errorMsg = data?.error || (response.status === 500
+          ? 'Server Configuration Error (HTTP 500). Please check that GEMINI_API_KEY environment variable is configured in your server or Vercel settings.'
+          : `Failed to generate proposal (${response.status} ${response.statusText})`);
+        throw new Error(errorMsg);
       }
 
       setProposalDraft(data.proposal);

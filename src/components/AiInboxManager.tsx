@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ModelVersion, SavedEmail, InboxThread, InboxMessage } from '../types';
 import { ApiErrorInfo } from './ApiErrorBanner';
 import { BannedWordBadge } from './BannedWordBadge';
+import { fetchGmailThreads, createGmailDraft, searchRecipientThreads } from '../services/gmailApi';
 import {
   Inbox,
   Mail,
@@ -31,108 +32,6 @@ import {
   Layers
 } from 'lucide-react';
 
-// Sample pre-populated threads mapped to recipient emails
-const SAMPLE_INBOX_THREADS: InboxThread[] = [
-  {
-    id: 'thread-moe-01',
-    recipientEmail: 'ministry@education.gov.gh',
-    recipientName: 'Ministry of Education Ghana - Partnership Directorate',
-    subject: 'MOU Execution & STEM Teacher Capacity Building Project 2026',
-    unreadCount: 1,
-    lastUpdated: '2026-07-28 08:30 GMT',
-    categoryTag: 'Government & MOU',
-    messages: [
-      {
-        id: 'msg-1',
-        from: 'Eduvision Ghana <partnerships@eduvisiongh.org>',
-        senderName: 'Eduvision Partnerships',
-        date: '2026-07-22 14:15 GMT',
-        body: `Dear Director Mensah,
-
-Following up on our preliminary meeting at the Ministry, we have prepared the updated Memorandum of Understanding (MoU) for the 2026 STEM Teacher Capacity Building Initiative.
-
-We are targeting 450 senior high school teachers across 5 regions in West Africa. Please review the attached draft terms regarding regional center access and co-certification.
-
-Warm regards,
-Eduvision Ghana Directorate`
-      },
-      {
-        id: 'msg-2',
-        from: 'Dr. Kwame Mensah <k.mensah@education.gov.gh>',
-        senderName: 'Dr. Kwame Mensah (Chief Director)',
-        date: '2026-07-28 08:30 GMT',
-        isRead: false,
-        body: `Dear Eduvision Team,
-
-Thank you for sending the revised MoU framework. The Minister's technical committee reviewed Section 4 regarding regional training venues in Kumasi and Tamale.
-
-We are in full agreement with the curriculum scope, but we require clarification on two operational points before final signing:
-1. What is Eduvision's timeline for deploying master trainers to the Northern region?
-2. Can we schedule an alignment call this Thursday or Friday to finalize the signature protocol?
-
-Please advise on your availability.
-
-Sincerely,
-Dr. Kwame Mensah
-Chief Director, Ministry of Education Ghana`
-      }
-    ]
-  },
-  {
-    id: 'thread-usaid-02',
-    recipientEmail: 'grants@usaid-westafrica.org',
-    recipientName: 'USAID West Africa Regional Mission',
-    subject: 'Quarterly Co-Funding Review & Female Digital Literacy Metrics',
-    unreadCount: 2,
-    lastUpdated: '2026-07-27 16:45 GMT',
-    categoryTag: 'International Grant',
-    messages: [
-      {
-        id: 'msg-3',
-        from: 'Sarah Jenkins <sjenkins@usaid-westafrica.org>',
-        senderName: 'Sarah Jenkins (Senior Grant Officer)',
-        date: '2026-07-27 16:45 GMT',
-        isRead: false,
-        body: `Dear Director,
-
-We are conducting our Q3 milestone audit for the Youth Tech Empowerment Grant. We noted excellent progress in student retention (88%), but we need the formal breakdown of female participants in the secondary school robotics modules.
-
-Could you provide the disaggregated data by region alongside your proposed disbursement schedule for Q4?
-
-Best regards,
-Sarah Jenkins
-Grant Management Specialist, USAID`
-      }
-    ]
-  },
-  {
-    id: 'thread-mcf-03',
-    recipientEmail: 'partnerships@mastercardfdn.org',
-    recipientName: 'Mastercard Foundation - Young Africa Works',
-    subject: 'Secondary School Tech Hub Expansion - Equipment Procurement Alignment',
-    unreadCount: 1,
-    lastUpdated: '2026-07-26 11:10 GMT',
-    categoryTag: 'Institutional Foundation',
-    messages: [
-      {
-        id: 'msg-4',
-        from: 'Emmanuel Osei <eosei@mastercardfdn.org>',
-        senderName: 'Emmanuel Osei (Program Lead)',
-        date: '2026-07-26 11:10 GMT',
-        isRead: false,
-        body: `Dear Eduvision Executive Team,
-
-Revisiting our conversation regarding the tech hub hardware acquisition for 12 rural districts.
-
-Our finance compliance unit requires confirmation whether Eduvision will manage duty exemptions through the Ministry of Finance or if clearing logistics are factored into the line-item budget. Please send a brief clarification so we can approve batch funding.
-
-Best,
-Emmanuel Osei`
-      }
-    ]
-  }
-];
-
 interface Props {
   selectedModel: ModelVersion;
   onSaveEmail: (email: SavedEmail) => void;
@@ -148,8 +47,8 @@ export const AiInboxManager: React.FC<Props> = ({
 }) => {
   // Inbox State & Fetching
   const [recipientInput, setRecipientInput] = useState<string>('ministry@education.gov.gh');
-  const [threads, setThreads] = useState<InboxThread[]>(SAMPLE_INBOX_THREADS);
-  const [selectedThreadId, setSelectedThreadId] = useState<string>('thread-moe-01');
+  const [threads, setThreads] = useState<InboxThread[]>([]);
+  const [selectedThreadId, setSelectedThreadId] = useState<string>('');
   const [isFetchingThreads, setIsFetchingThreads] = useState<boolean>(false);
   const [fetchStatusMessage, setFetchStatusMessage] = useState<string>('');
 
@@ -183,16 +82,20 @@ export const AiInboxManager: React.FC<Props> = ({
   const [isTriggerActive, setIsTriggerActive] = useState<boolean>(true);
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
 
+  // Fetch initial threads on component mount
+  useEffect(() => {
+    fetchThreadsForRecipient(recipientInput);
+  }, []);
+
   // Dynamic API Fetch function to retrieve active email threads for an entered contact email
   const fetchThreadsForRecipient = async (emailQuery: string) => {
     setIsFetchingThreads(true);
-    setFetchStatusMessage('Fetching active email threads from Gmail...');
+    setFetchStatusMessage('Fetching active email threads from Gmail API...');
     try {
-      const response = await fetch(`/api/inbox/fetch-threads?email=${encodeURIComponent(emailQuery.trim())}`);
-      const data = await response.json();
-      if (response.ok && data.threads && Array.isArray(data.threads) && data.threads.length > 0) {
+      const res = await fetchGmailThreads(emailQuery);
+      if (res.threads && Array.isArray(res.threads) && res.threads.length > 0) {
         setThreads((prev) => {
-          const fetchedThreads = [...data.threads];
+          const fetchedThreads = [...res.threads];
           // Preserve custom user-created local threads not present in fetched array
           prev.forEach((localT) => {
             if (!fetchedThreads.some((f) => f.id === localT.id)) {
@@ -202,22 +105,27 @@ export const AiInboxManager: React.FC<Props> = ({
           return fetchedThreads;
         });
 
-        // Auto-select the top matching thread
-        const matched = data.threads.find(
-          (t: InboxThread) => t.recipientEmail.toLowerCase() === emailQuery.trim().toLowerCase()
-        ) || data.threads[0];
+        // Auto-select top matching thread
+        const queryNorm = emailQuery.trim().toLowerCase();
+        const matched = res.threads.find(
+          (t: InboxThread) => t.recipientEmail.toLowerCase() === queryNorm
+        ) || res.threads[0];
 
         if (matched) {
           setSelectedThreadId(matched.id);
         }
 
-        setFetchStatusMessage(`Retrieved ${data.threads.length} active threads for "${emailQuery || 'all contacts'}"`);
+        setFetchStatusMessage(
+          res.isLiveGmail
+            ? `Retrieved ${res.threads.length} live Gmail threads from connected account`
+            : `Retrieved ${res.threads.length} active threads for "${emailQuery || 'all contacts'}"`
+        );
       } else {
-        setFetchStatusMessage(`No remote threads found for "${emailQuery}". Active local threads loaded.`);
+        setFetchStatusMessage(`No threads found for "${emailQuery}".`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching email threads:', err);
-      setFetchStatusMessage('Active threads filtered from local workspace.');
+      setFetchStatusMessage('Active threads retrieved from local server cache.');
     } finally {
       setIsFetchingThreads(false);
     }
@@ -324,20 +232,15 @@ export const AiInboxManager: React.FC<Props> = ({
         const generatedDraft = genData.draft;
 
         // 2. Post generated draft directly into native Gmail Drafts folder
-        const draftRes = await fetch('/api/gmail/create-native-draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recipientEmail: thread.recipientEmail,
-            subject: `RE: ${thread.subject}`,
-            body: generatedDraft,
-            threadId: thread.id
-          })
-        });
-
-        const draftData = await draftRes.json();
-        if (!draftRes.ok) {
-          console.warn(`Gmail draft posting notice for ${thread.id}:`, draftData.error);
+        try {
+          await createGmailDraft(
+            thread.recipientEmail,
+            `RE: ${thread.subject}`,
+            generatedDraft,
+            thread.id
+          );
+        } catch (draftErr: any) {
+          console.warn(`Gmail draft posting notice for ${thread.id}:`, draftErr?.message);
         }
 
         results.push({
@@ -377,11 +280,98 @@ export const AiInboxManager: React.FC<Props> = ({
     }
   };
 
-  // Handle explicit thread selection with draft clear
+  // Helper to generate AI draft reply for a given target thread via backend
+  const generateDraftForThread = async (targetThread: InboxThread) => {
+    if (!targetThread) return;
+    setLoading(true);
+    setSimulatedDraftSaved(false);
+
+    let compiledText = `Email Subject: ${targetThread.subject}\n\n`;
+    targetThread.messages.forEach((msg, idx) => {
+      compiledText += `--- Message ${idx + 1} ---\n`;
+      compiledText += `From: ${msg.from}\n`;
+      compiledText += `Date: ${msg.date}\n`;
+      let bodyText = msg.body;
+      if (bodyText.length > 10000) {
+        bodyText = bodyText.substring(0, 10000) + '\n...[MESSAGE TRUNCATED]...';
+      }
+      compiledText += `Body:\n${bodyText}\n\n`;
+    });
+
+    try {
+      const response = await fetch('/api/inbox-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientEmail: targetThread.recipientEmail,
+          subject: targetThread.subject,
+          threadContext: compiledText,
+          modelChoice: selectedModel,
+          customDirectives: customDirectives,
+          useGmailNativeSignature: useGmailSignature
+        })
+      });
+
+      const responseText = await response.text();
+      let data: any = null;
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          // Response is non-JSON
+        }
+      }
+
+      if (!response.ok) {
+        const errorMsg = data?.error || (response.status === 500
+          ? 'Server Error (HTTP 500). Please check that GEMINI_API_KEY environment variable is configured in your server or Vercel settings.'
+          : `AI Inbox draft request failed (${response.status} ${response.statusText})`);
+        throw new Error(errorMsg);
+      }
+
+      if (!data || !data.draft) {
+        throw new Error('Received an invalid draft response format from the server.');
+      }
+
+      setDraftResult(data.draft);
+
+      // Mark messages in thread as read
+      setThreads((prev) =>
+        prev.map((t) => {
+          if (t.id === targetThread.id) {
+            return {
+              ...t,
+              unreadCount: 0,
+              messages: t.messages.map((m) => ({ ...m, isRead: true }))
+            };
+          }
+          return t;
+        })
+      );
+    } catch (err: any) {
+      console.error('Draft generation error:', err);
+      const errorMessage = err?.message || 'Failed to generate AI inbox draft reply.';
+      if (onApiError) {
+        const isKey = errorMessage.toLowerCase().includes('key') || errorMessage.toLowerCase().includes('missing') || errorMessage.includes('500');
+        onApiError({
+          title: 'AI Inbox Reply Error',
+          message: errorMessage,
+          actionableHint: isKey
+            ? 'Verify GEMINI_API_KEY environment variable is properly configured in your Vercel or server deployment settings.'
+            : 'Check network connection and try again.',
+          onRetry: () => generateDraftForThread(targetThread)
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle explicit thread selection with automatic draft trigger
   const handleSelectThread = (thread: InboxThread) => {
     setSelectedThreadId(thread.id);
     setRecipientInput(thread.recipientEmail);
-    setDraftResult(''); // Clear old draft so generated reply strictly matches the newly selected thread
+    generateDraftForThread(thread);
   };
 
   // Handle recipient input change with auto-match and clear draft
@@ -505,63 +495,7 @@ export const AiInboxManager: React.FC<Props> = ({
       }
       return;
     }
-
-    setLoading(true);
-    setSimulatedDraftSaved(false);
-
-    try {
-      const response = await fetch('/api/inbox-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: activeThread.recipientEmail,
-          subject: activeThread.subject,
-          threadContext: compiledConversationText,
-          modelChoice: selectedModel,
-          customDirectives: customDirectives,
-          useGmailNativeSignature: useGmailSignature
-        })
-      });
-
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (e) {
-        throw new Error(`Server returned invalid JSON response (${response.status} ${response.statusText}).`);
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || `AI Inbox draft request failed (${response.status})`);
-      }
-
-      setDraftResult(data.draft);
-
-      // Mark messages in active thread as read
-      setThreads((prev) =>
-        prev.map((t) => {
-          if (t.id === activeThread.id) {
-            return {
-              ...t,
-              unreadCount: 0,
-              messages: t.messages.map((m) => ({ ...m, isRead: true }))
-            };
-          }
-          return t;
-        })
-      );
-    } catch (err: any) {
-      const errMsg = err?.message || 'Failed to generate AI inbox draft reply.';
-      if (onApiError) {
-        onApiError({
-          title: 'AI Inbox Reply Error',
-          message: errMsg,
-          actionableHint: 'Verify GEMINI_API_KEY environment variable and internet connection.',
-          onRetry: handleGenerateInboxDraft
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
+    await generateDraftForThread(activeThread);
   };
 
   const handleCopyDraft = () => {
@@ -595,23 +529,12 @@ export const AiInboxManager: React.FC<Props> = ({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/gmail/create-native-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: activeThread.recipientEmail,
-          subject: `RE: ${activeThread.subject}`,
-          body: draftResult,
-          threadId: activeThread.id
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create Gmail draft.');
-      }
-
+      await createGmailDraft(
+        activeThread.recipientEmail,
+        `RE: ${activeThread.subject}`,
+        draftResult,
+        activeThread.id
+      );
       setSimulatedDraftSaved(true);
     } catch (err: any) {
       if (onApiError) {

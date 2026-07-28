@@ -526,6 +526,97 @@ ${threadContext}`;
 app.get("/api/inbox/fetch-threads", async (req, res) => {
   try {
     const emailQuery = (req.query.email as string || "").trim().toLowerCase();
+    const authHeader = req.headers.authorization || "";
+    const accessToken = authHeader.replace("Bearer ", "").trim() || (req.query.accessToken as string || "").trim();
+
+    // If OAuth access token provided, attempt live sync with Google Gmail REST API
+    if (accessToken) {
+      try {
+        let gmailUrl = "https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=10";
+        if (emailQuery) {
+          gmailUrl += `&q=${encodeURIComponent(emailQuery)}`;
+        }
+
+        const gmailRes = await fetch(gmailUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+
+        if (gmailRes.ok) {
+          const gmailData: any = await gmailRes.json();
+          const threadList = gmailData.threads || [];
+
+          if (threadList.length > 0) {
+            const detailPromises = threadList.slice(0, 8).map(async (tItem: any) => {
+              const detailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${tItem.id}?format=full`, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+              });
+              if (!detailRes.ok) return null;
+              const detail = await detailRes.json();
+
+              const messages = (detail.messages || []).map((msg: any, idx: number) => {
+                const headers = msg.payload?.headers || [];
+                const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+
+                const fromHeader = getHeader('From');
+                const dateHeader = getHeader('Date');
+
+                let body = msg.snippet || '';
+                if (msg.payload?.parts) {
+                  const plainPart = msg.payload.parts.find((p: any) => p.mimeType === 'text/plain');
+                  if (plainPart?.body?.data) {
+                    body = Buffer.from(plainPart.body.data, 'base64').toString('utf-8');
+                  }
+                } else if (msg.payload?.body?.data) {
+                  body = Buffer.from(msg.payload.body.data, 'base64').toString('utf-8');
+                }
+
+                const isUnread = (msg.labelIds || []).includes('UNREAD');
+
+                return {
+                  id: msg.id || `m_${idx}`,
+                  from: fromHeader || 'partner@organization.org',
+                  senderName: fromHeader.split('<')[0].replace(/"/g, '').trim() || fromHeader || 'Gmail Contact',
+                  date: dateHeader ? new Date(dateHeader).toLocaleString() : 'Recently',
+                  isRead: !isUnread,
+                  body: body.trim() || msg.snippet || 'No message content'
+                };
+              });
+
+              const firstHeaders = detail.messages?.[0]?.payload?.headers || [];
+              const subject = firstHeaders.find((h: any) => h.name.toLowerCase() === 'subject')?.value || 'Gmail Inquiry Thread';
+              const fromVal = firstHeaders.find((h: any) => h.name.toLowerCase() === 'from')?.value || '';
+
+              const unreadMsgs = messages.filter((m: any) => !m.isRead);
+
+              return {
+                id: detail.id,
+                recipientEmail: fromVal.match(/<([^>]+)>/)?.[1] || fromVal || 'partner@organization.org',
+                recipientName: fromVal.split('<')[0].replace(/"/g, '').trim() || 'Partner Organization',
+                subject: subject,
+                unreadCount: unreadMsgs.length,
+                lastUpdated: 'Live Gmail Sync',
+                categoryTag: 'Gmail Live Thread',
+                messages: messages
+              };
+            });
+
+            const liveThreads = (await Promise.all(detailPromises)).filter(Boolean);
+
+            if (liveThreads.length > 0) {
+              return res.json({
+                threads: liveThreads,
+                query: emailQuery,
+                count: liveThreads.length,
+                isLiveGmail: true,
+                message: `Retrieved ${liveThreads.length} live Gmail threads from connected account.`
+              });
+            }
+          }
+        }
+      } catch (gmailErr) {
+        console.warn("Live Gmail API fetch failed, using fallback threads:", gmailErr);
+      }
+    }
 
     // Default sample database of active inbox threads
     const allThreads = [
